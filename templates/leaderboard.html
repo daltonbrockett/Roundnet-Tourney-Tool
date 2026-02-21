@@ -29,7 +29,7 @@
                 <tr>
                     <td class="rank-cell">{{ loop.index }}</td>
                     <td class="player-name">{{ player.name }}</td>
-                    <td class="player-detail">{{ player.region }}</td>
+                    <td class="player-detail">{{ player.region or '—' }}</td>
                     <td class="player-detail">{{ player.club or '—' }}</td>
                     <td class="num">{{ player.wins }}</td>
                     <td class="num">{{ player.losses }}</td>

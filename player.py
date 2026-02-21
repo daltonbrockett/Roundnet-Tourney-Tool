@@ -63,13 +63,13 @@ class Player:
     3. Point differential / points for / points against (tiebreaker #2)
     """
 
-    def __init__(self, name: str, region: str, club: str = "") -> None:
+    def __init__(self, name: str, region: str = "", club: str = "") -> None:
         """
         Initialize a new Player.
 
         Args:
             name: Player's name.
-            region: Player's region.
+            region: Player's region (optional).
             club: Team/club affiliation (optional).
         """
         self.name = name

@@ -38,8 +38,6 @@ def players_page():
 
         if not name:
             flash("Player name is required.", "error")
-        elif not region:
-            flash("Region is required.", "error")
         elif name in players:
             flash(f"Player '{name}' already exists.", "error")
         else:
