@@ -52,16 +52,45 @@
             </thead>
             <tbody>
                 {% for player in players %}
-                <tr>
+                <tr id="row-{{ loop.index }}">
                     <td class="num">{{ loop.index }}</td>
-                    <td class="player-name">{{ player.name }}</td>
-                    <td class="player-detail">{{ player.region }}</td>
-                    <td class="player-detail">{{ player.club or '—' }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('delete_player', name=player.name) }}"
-                            style="display:inline;" onsubmit="return confirm('Remove {{ player.name }}?');">
-                            <button type="submit" class="btn btn-danger" title="Remove player">✕</button>
+                    <!-- Display mode -->
+                    <td class="player-name display-cell" data-row="{{ loop.index }}">{{ player.name }}</td>
+                    <td class="player-detail display-cell" data-row="{{ loop.index }}">{{ player.region or '—' }}</td>
+                    <td class="player-detail display-cell" data-row="{{ loop.index }}">{{ player.club or '—' }}</td>
+                    <!-- Edit mode (hidden by default) -->
+                    <td class="edit-cell" data-row="{{ loop.index }}" style="display:none;">
+                        <form method="POST" action="{{ url_for('edit_player', name=player.name) }}" class="edit-form"
+                            id="edit-form-{{ loop.index }}">
+                            <input type="text" name="name" value="{{ player.name }}" class="edit-input" required
+                                autocomplete="off">
                         </form>
+                    </td>
+                    <td class="edit-cell" data-row="{{ loop.index }}" style="display:none;">
+                        <input type="text" name="region" value="{{ player.region }}" class="edit-input"
+                            form="edit-form-{{ loop.index }}" autocomplete="off">
+                    </td>
+                    <td class="edit-cell" data-row="{{ loop.index }}" style="display:none;">
+                        <input type="text" name="club" value="{{ player.club }}" class="edit-input"
+                            form="edit-form-{{ loop.index }}" autocomplete="off">
+                    </td>
+                    <td>
+                        <!-- Display mode actions -->
+                        <span class="display-cell action-btns" data-row="{{ loop.index }}">
+                            <button type="button" class="btn btn-icon" title="Edit player"
+                                onclick="toggleEdit({{ loop.index }})">✎</button>
+                            <form method="POST" action="{{ url_for('delete_player', name=player.name) }}"
+                                style="display:inline;" onsubmit="return confirm('Remove {{ player.name }}?');">
+                                <button type="submit" class="btn btn-danger" title="Remove player">✕</button>
+                            </form>
+                        </span>
+                        <!-- Edit mode actions -->
+                        <span class="edit-cell action-btns" data-row="{{ loop.index }}" style="display:none;">
+                            <button type="submit" form="edit-form-{{ loop.index }}" class="btn btn-save"
+                                title="Save">✓</button>
+                            <button type="button" class="btn btn-danger" title="Cancel"
+                                onclick="toggleEdit({{ loop.index }})">✕</button>
+                        </span>
                     </td>
                 </tr>
                 {% endfor %}
@@ -75,4 +104,75 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+    function toggleEdit(rowIndex) {
+        const displayCells = document.querySelectorAll(`.display-cell[data-row="${rowIndex}"]`);
+        const editCells = document.querySelectorAll(`.edit-cell[data-row="${rowIndex}"]`);
+        const isEditing = displayCells[0].style.display === 'none';
+        displayCells.forEach(el => el.style.display = isEditing ? '' : 'none');
+        editCells.forEach(el => el.style.display = isEditing ? 'none' : '');
+        if (!isEditing) {
+            const firstInput = editCells[0]?.querySelector('input');
+            if (firstInput) firstInput.focus();
+        }
+    }
+</script>
+
+<style>
+    .edit-input {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        padding: 0.45rem 0.65rem;
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.85rem;
+        width: 100%;
+        outline: none;
+        transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .edit-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn-icon {
+        background: transparent;
+        color: var(--text-muted);
+        padding: 0.4rem 0.65rem;
+        font-size: 0.9rem;
+        border: none;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+        transition: all var(--transition);
+    }
+
+    .btn-icon:hover {
+        color: var(--accent);
+        background: var(--accent-glow);
+    }
+
+    .btn-save {
+        background: transparent;
+        color: var(--success);
+        padding: 0.4rem 0.65rem;
+        font-size: 0.9rem;
+        border: none;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+        transition: all var(--transition);
+    }
+
+    .btn-save:hover {
+        background: rgba(52, 211, 153, 0.1);
+    }
+
+    .action-btns {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+</style>
 {% endblock %}

@@ -60,6 +60,50 @@ def delete_player(name):
     return redirect(url_for("players_page"))
 
 
+@app.route("/players/<name>/edit", methods=["POST"])
+def edit_player(name):
+    """Edit a player's name, region, or club."""
+    if name not in players:
+        flash(f"Player '{name}' not found.", "error")
+        return redirect(url_for("players_page"))
+
+    new_name = request.form.get("name", "").strip()
+    new_region = request.form.get("region", "").strip()
+    new_club = request.form.get("club", "").strip()
+
+    if not new_name:
+        flash("Player name is required.", "error")
+        return redirect(url_for("players_page"))
+
+    player = players[name]
+
+    # If the name changed, re-key the dict and update head-to-head refs
+    if new_name != name:
+        if new_name in players:
+            flash(f"Player '{new_name}' already exists.", "error")
+            return redirect(url_for("players_page"))
+
+        # Update head-to-head records in other players
+        for p in players.values():
+            if name in p.head_to_head:
+                p.head_to_head[new_name] = p.head_to_head.pop(name)
+
+        # Update game history
+        for game in games:
+            game["team_a"] = [new_name if n == name else n for n in game["team_a"]]
+            game["team_b"] = [new_name if n == name else n for n in game["team_b"]]
+
+        # Re-key in the players dict
+        del players[name]
+        player.name = new_name
+        players[new_name] = player
+
+    player.region = new_region
+    player.club = new_club
+    flash(f"Updated {new_name}.", "success")
+    return redirect(url_for("players_page"))
+
+
 @app.route("/scores", methods=["GET", "POST"])
 def scores_page():
     """Score entry: select 4 pool players, enter scores for 3 games."""
