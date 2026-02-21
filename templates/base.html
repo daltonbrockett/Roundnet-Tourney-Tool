@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Roundnet Tournament{% endblock %}</title>
+    <meta name="description" content="Roundnet tournament seeding and ranking tool for 16 players.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <a class="navbar-brand" href="{{ url_for('index') }}">
+            🏐 <span>Roundnet Tourney</span>
+        </a>
+        <div class="navbar-links">
+            <a href="{{ url_for('players_page') }}"
+                class="{% if request.endpoint == 'players_page' %}active{% endif %}">
+                Players
+            </a>
+            <a href="{{ url_for('scores_page') }}" class="{% if request.endpoint == 'scores_page' %}active{% endif %}">
+                Scores
+            </a>
+            <a href="{{ url_for('leaderboard') }}" class="{% if request.endpoint == 'leaderboard' %}active{% endif %}">
+                Leaderboard
+            </a>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+</body>
+
+</html>

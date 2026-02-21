@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Players — Roundnet Tournament{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Players</h1>
+    <p>Register players for the tournament (max 16).</p>
+</div>
+
+<!-- Add Player Form -->
+<div class="card">
+    <div class="card-title">Add Player</div>
+    <form method="POST" action="{{ url_for('players_page') }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" placeholder="Player name" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="region">Region</label>
+                <input type="text" id="region" name="region" placeholder="e.g. Midwest" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="club">Club</label>
+                <input type="text" id="club" name="club" placeholder="Optional" autocomplete="off">
+            </div>
+            <button type="submit" class="btn btn-primary" {% if players|length>= 16 %}disabled{% endif %}>
+                + Add
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Player List -->
+<div class="card">
+    <div class="card-title">
+        Roster
+        <span class="count">{{ players|length }} / 16</span>
+    </div>
+
+    {% if players %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Region</th>
+                    <th>Club</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="player-name">{{ player.name }}</td>
+                    <td class="player-detail">{{ player.region }}</td>
+                    <td class="player-detail">{{ player.club or '—' }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('delete_player', name=player.name) }}"
+                            style="display:inline;" onsubmit="return confirm('Remove {{ player.name }}?');">
+                            <button type="submit" class="btn btn-danger" title="Remove player">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="icon">👥</div>
+        <p>No players registered yet. Add your first player above!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

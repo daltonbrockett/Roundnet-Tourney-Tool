@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard — Roundnet Tournament{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Leaderboard</h1>
+    <p>Rankings by total wins, head-to-head, then point differential.</p>
+</div>
+
+<div class="card">
+    {% if players %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th class="num">Rank</th>
+                    <th>Player</th>
+                    <th>Region</th>
+                    <th>Club</th>
+                    <th class="num">W</th>
+                    <th class="num">L</th>
+                    <th class="num">PF</th>
+                    <th class="num">PA</th>
+                    <th class="num">PD</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in players %}
+                <tr>
+                    <td class="rank-cell">{{ loop.index }}</td>
+                    <td class="player-name">{{ player.name }}</td>
+                    <td class="player-detail">{{ player.region }}</td>
+                    <td class="player-detail">{{ player.club or '—' }}</td>
+                    <td class="num">{{ player.wins }}</td>
+                    <td class="num">{{ player.losses }}</td>
+                    <td class="num">{{ player.points_for }}</td>
+                    <td class="num">{{ player.points_against }}</td>
+                    <td
+                        class="num {% if player.point_differential > 0 %}stat-positive{% elif player.point_differential < 0 %}stat-negative{% else %}stat-zero{% endif %}">
+                        {{ '%+d'|format(player.point_differential) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="icon">🏆</div>
+        <p>No players registered yet. Head to the <a href="{{ url_for('players_page') }}"
+                style="color: var(--accent);">Players</a> page to get started.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
