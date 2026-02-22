@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Round {{ round_idx + 1 }} — Roundnet Tournament{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div style="display:flex; align-items:center; gap:1rem;">
+        <a href="{{ url_for('scores_page') }}" class="btn btn-secondary" style="padding:0.45rem 0.8rem;">← Back</a>
+        <div>
+            <h1>Round {{ round_idx + 1 }}</h1>
+            <p>Enter scores for all 4 pools (12 games total).</p>
+        </div>
+    </div>
+</div>
+
+<form method="POST" action="{{ url_for('round_detail', round_idx=round_idx) }}">
+
+    {% for pool in pools %}
+    <div class="card {% if not loop.first %}{% endif %}">
+        <div class="card-title">
+            Pool {{ loop.index }}
+            <span class="count">{{ pool|join(' · ') }}</span>
+        </div>
+
+        <div class="matchup-list">
+            {% set pool_idx = loop.index0 %}
+            {% for team_a_idx, team_b_idx in matchup_pairs %}
+            {% set game_idx = loop.index0 %}
+            {% set flat_idx = pool_idx * 3 + game_idx %}
+            <div class="matchup-row">
+                <div class="matchup-label">Game {{ loop.index }}</div>
+                <div class="matchup-teams">
+                    <div class="matchup-team">
+                        <span class="team-names">{{ pool[team_a_idx[0]] }} &amp; {{ pool[team_a_idx[1]] }}</span>
+                        <input type="number" name="pool_{{ pool_idx }}_game_{{ game_idx }}_score_a" min="0" max="15"
+                            required class="score-input"
+                            value="{% if existing_scores and flat_idx < existing_scores|length %}{{ existing_scores[flat_idx]['score_a'] }}{% endif %}"
+                            placeholder="0">
+                    </div>
+                    <div class="matchup-vs">vs</div>
+                    <div class="matchup-team">
+                        <input type="number" name="pool_{{ pool_idx }}_game_{{ game_idx }}_score_b" min="0" max="15"
+                            required class="score-input"
+                            value="{% if existing_scores and flat_idx < existing_scores|length %}{{ existing_scores[flat_idx]['score_b'] }}{% endif %}"
+                            placeholder="0">
+                        <span class="team-names">{{ pool[team_b_idx[0]] }} &amp; {{ pool[team_b_idx[1]] }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <div style="margin-top: 1.25rem; text-align: right;">
+        <button type="submit" class="btn btn-primary btn-lg">Submit All Scores</button>
+    </div>
+</form>
+{% endblock %}

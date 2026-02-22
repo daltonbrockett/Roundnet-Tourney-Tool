@@ -530,6 +530,99 @@ tbody tr:hover {
   flex-shrink: 0;
 }
 
+/* ---------- Round Cards ---------- */
+.round-card {
+  transition: border-color var(--transition);
+}
+
+.round-card.round-completed {
+  border-color: rgba(52, 211, 153, 0.2);
+}
+
+.round-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.round-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.round-number {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.round-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-done {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--success);
+}
+
+.status-pending {
+  background: rgba(251, 191, 36, 0.12);
+  color: var(--warning);
+}
+
+/* Pool summary grid inside round cards */
+.pool-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.pool-summary {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+
+.pool-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.pool-players {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pool-player-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* Larger button variant */
+.btn-lg {
+  padding: 0.8rem 1.75rem;
+  font-size: 0.95rem;
+}
+
+/* Generate wrap */
+.generate-btn-wrap {
+  text-align: center;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 680px) {
   .form-grid {
@@ -555,5 +648,15 @@ tbody tr:hover {
 
   .container {
     padding: 1.5rem 1rem;
+  }
+
+  .pool-summary-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .round-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 }

@@ -6,20 +6,17 @@ Provides a UI for managing players and viewing the leaderboard.
 
 from flask import Flask, render_template, request, redirect, url_for, flash
 from player import Player, validate_score
+from scheduler import generate_rounds, MATCHUP_PAIRS
 
 app = Flask(__name__)
 app.secret_key = "roundnet-tourney-dev-key"
 
 # In-memory storage
 players: dict[str, Player] = {}
-games: list[dict] = []  # Game history for auditing
 
-# The 3 matchup pairings for a pool of 4 (indices into the pool list)
-MATCHUP_PAIRS = [
-    ((0, 1), (2, 3)),
-    ((0, 2), (1, 3)),
-    ((0, 3), (1, 2)),
-]
+# Tournament state
+tournament_rounds: list[list[list[str]]] = []   # 5 rounds x 4 pools x 4 names
+round_scores: dict[int, list[dict]] = {}         # round_idx -> list of game dicts
 
 
 @app.route("/")
@@ -88,10 +85,18 @@ def edit_player(name):
             if name in p.head_to_head:
                 p.head_to_head[new_name] = p.head_to_head.pop(name)
 
-        # Update game history
-        for game in games:
-            game["team_a"] = [new_name if n == name else n for n in game["team_a"]]
-            game["team_b"] = [new_name if n == name else n for n in game["team_b"]]
+        # Update game history in round_scores
+        for ri in round_scores:
+            for game in round_scores[ri]:
+                game["team_a"] = [new_name if n == name else n for n in game["team_a"]]
+                game["team_b"] = [new_name if n == name else n for n in game["team_b"]]
+
+        # Update tournament round pools
+        for rnd in tournament_rounds:
+            for pool in rnd:
+                for i, n in enumerate(pool):
+                    if n == name:
+                        pool[i] = new_name
 
         # Re-key in the players dict
         del players[name]
@@ -104,95 +109,147 @@ def edit_player(name):
     return redirect(url_for("players_page"))
 
 
-@app.route("/scores", methods=["GET", "POST"])
+# ── helpers ──────────────────────────────────────────────────────
+
+def recalculate_all_stats():
+    """Rebuild every player's stats from the stored round_scores."""
+    for p in players.values():
+        p.reset_stats()
+
+    for ri in sorted(round_scores):
+        for game in round_scores[ri]:
+            p_a1 = players[game["team_a"][0]]
+            p_a2 = players[game["team_a"][1]]
+            p_b1 = players[game["team_b"][0]]
+            p_b2 = players[game["team_b"][1]]
+            score_a = game["score_a"]
+            score_b = game["score_b"]
+
+            p_a1.record_game(
+                partner=p_a2, opponents=[p_b1, p_b2],
+                team_score=score_a, opponent_score=score_b,
+            )
+            p_b1.record_game(
+                partner=p_b2, opponents=[p_a1, p_a2],
+                team_score=score_b, opponent_score=score_a,
+            )
+
+
+# ── tournament management ────────────────────────────────────────
+
+@app.route("/tournament/generate", methods=["POST"])
+def generate_tournament():
+    """Generate balanced rounds for 16 registered players."""
+    if len(players) != 16:
+        flash("Exactly 16 players are required to generate the tournament.", "error")
+        return redirect(url_for("scores_page"))
+
+    global tournament_rounds, round_scores
+    player_names = sorted(players.keys(), key=str.lower)
+    tournament_rounds = generate_rounds(player_names)
+    round_scores = {}
+    for p in players.values():
+        p.reset_stats()
+    flash("Tournament generated — 5 rounds are ready!", "success")
+    return redirect(url_for("scores_page"))
+
+
+@app.route("/tournament/reset", methods=["POST"])
+def reset_tournament():
+    """Clear all rounds and scores."""
+    global tournament_rounds, round_scores
+    tournament_rounds = []
+    round_scores = {}
+    for p in players.values():
+        p.reset_stats()
+    flash("Tournament has been reset.", "success")
+    return redirect(url_for("scores_page"))
+
+
+# ── scores pages ─────────────────────────────────────────────────
+
+@app.route("/scores")
 def scores_page():
-    """Score entry: select 4 pool players, enter scores for 3 games."""
-    player_list = sorted(players.values(), key=lambda p: p.name.lower())
+    """Rounds overview — shows all rounds with completion status."""
+    rounds_info = []
+    for ri, pools in enumerate(tournament_rounds):
+        rounds_info.append({
+            "index": ri,
+            "pools": pools,
+            "completed": ri in round_scores,
+        })
+    return render_template(
+        "scores.html",
+        players=list(players.values()),
+        rounds=rounds_info,
+        tournament_generated=bool(tournament_rounds),
+    )
+
+
+@app.route("/scores/<int:round_idx>", methods=["GET", "POST"])
+def round_detail(round_idx):
+    """Enter / edit scores for a single round."""
+    if not tournament_rounds or round_idx < 0 or round_idx >= len(tournament_rounds):
+        flash("Invalid round.", "error")
+        return redirect(url_for("scores_page"))
+
+    pools = tournament_rounds[round_idx]
 
     if request.method == "POST":
-        # Collect the 4 selected player names
-        pool_names = [request.form.get(f"player_{i}", "").strip() for i in range(4)]
-
-        # Validate pool selection
-        if any(not n for n in pool_names):
-            flash("Please select all 4 pool players.", "error")
-            return render_template("scores.html", players=player_list,
-                                   selected=pool_names, show_matchups=False)
-
-        if len(set(pool_names)) < 4:
-            flash("All 4 players must be different.", "error")
-            return render_template("scores.html", players=player_list,
-                                   selected=pool_names, show_matchups=False)
-
-        for n in pool_names:
-            if n not in players:
-                flash(f"Player '{n}' not found.", "error")
-                return render_template("scores.html", players=player_list,
-                                       selected=pool_names, show_matchups=False)
-
-        pool = [players[n] for n in pool_names]
-
-        # Validate and record each game
         all_valid = True
-        game_scores = []
-        for idx, (team_a_idx, team_b_idx) in enumerate(MATCHUP_PAIRS):
-            try:
-                score_a = int(request.form.get(f"game_{idx}_score_a", "0"))
-                score_b = int(request.form.get(f"game_{idx}_score_b", "0"))
-            except ValueError:
-                flash(f"Game {idx + 1}: Scores must be numbers.", "error")
-                all_valid = False
-                continue
+        new_games: list[dict] = []
 
-            if not validate_score(score_a, score_b):
-                flash(
-                    f"Game {idx + 1}: Invalid score {score_a}-{score_b}. "
-                    "Games are to 11 (win by 2, cap at 15).",
-                    "error",
-                )
-                all_valid = False
-                continue
+        for pi, pool in enumerate(pools):
+            for gi, (team_a_idx, team_b_idx) in enumerate(MATCHUP_PAIRS):
+                field_a = f"pool_{pi}_game_{gi}_score_a"
+                field_b = f"pool_{pi}_game_{gi}_score_b"
+                try:
+                    score_a = int(request.form.get(field_a, "0"))
+                    score_b = int(request.form.get(field_b, "0"))
+                except ValueError:
+                    flash(f"Pool {pi+1}, Game {gi+1}: Scores must be numbers.", "error")
+                    all_valid = False
+                    continue
 
-            game_scores.append((idx, team_a_idx, team_b_idx, score_a, score_b))
+                if not validate_score(score_a, score_b):
+                    flash(
+                        f"Pool {pi+1}, Game {gi+1}: Invalid score {score_a}-{score_b}. "
+                        "Games are to 11 (win by 2, cap at 15).",
+                        "error",
+                    )
+                    all_valid = False
+                    continue
+
+                new_games.append({
+                    "team_a": [pool[team_a_idx[0]], pool[team_a_idx[1]]],
+                    "team_b": [pool[team_b_idx[0]], pool[team_b_idx[1]]],
+                    "score_a": score_a,
+                    "score_b": score_b,
+                })
 
         if not all_valid:
-            return render_template("scores.html", players=player_list,
-                                   selected=pool_names, show_matchups=True)
-
-        # All valid — record games
-        for idx, team_a_idx, team_b_idx, score_a, score_b in game_scores:
-            p_a1 = pool[team_a_idx[0]]
-            p_a2 = pool[team_a_idx[1]]
-            p_b1 = pool[team_b_idx[0]]
-            p_b2 = pool[team_b_idx[1]]
-
-            # record_game updates self + partner
-            p_a1.record_game(
-                partner=p_a2,
-                opponents=[p_b1, p_b2],
-                team_score=score_a,
-                opponent_score=score_b,
-            )
-            # Record from opponent side
-            p_b1.record_game(
-                partner=p_b2,
-                opponents=[p_a1, p_a2],
-                team_score=score_b,
-                opponent_score=score_a,
+            existing = round_scores.get(round_idx, [])
+            return render_template(
+                "round_detail.html",
+                round_idx=round_idx,
+                pools=pools,
+                matchup_pairs=MATCHUP_PAIRS,
+                existing_scores=existing,
             )
 
-            games.append({
-                "team_a": [p_a1.name, p_a2.name],
-                "team_b": [p_b1.name, p_b2.name],
-                "score_a": score_a,
-                "score_b": score_b,
-            })
+        round_scores[round_idx] = new_games
+        recalculate_all_stats()
+        flash(f"Round {round_idx + 1} scores saved!", "success")
+        return redirect(url_for("scores_page"))
 
-        flash("All 3 games recorded!", "success")
-        return redirect(url_for("leaderboard"))
-
-    return render_template("scores.html", players=player_list,
-                           selected=None, show_matchups=False)
+    existing = round_scores.get(round_idx, [])
+    return render_template(
+        "round_detail.html",
+        round_idx=round_idx,
+        pools=pools,
+        matchup_pairs=MATCHUP_PAIRS,
+        existing_scores=existing,
+    )
 
 
 @app.route("/leaderboard")
